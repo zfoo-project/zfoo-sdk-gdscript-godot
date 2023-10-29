@@ -3,6 +3,7 @@ extends RefCounted
 const ProtocolManager = preload("res://zfoogd/ProtocolManager.gd")
 const ByteBuffer = preload("res://zfoogd/ByteBuffer.gd")
 const SignalAttachment = preload("res://zfoogd/attachment/SignalAttachment.gd")
+const Heartbeat = preload("res://zfoogd/common/Heartbeat.gd")
 
 
 var client = StreamPeerTCP.new()
@@ -19,17 +20,21 @@ func _init(hostAndPort: String):
 	port = splits[1].to_int()
 	pass
 
-func start():
+func start() -> void:
 	client.big_endian = true
-	client.set_no_delay(true)
-	var result = client.connect_to_host(host, port)
-	sendThread.start(Callable(self, "tickSend"))
+	var startResult = client.connect_to_host(host, port)
+	if startResult == OK:
+		print(format("start tcp client [{}:{}]", [host, port]))
+	else:
+		printerr(format("start tcp client error [{}:{}]", [host, port]))
+	var result = sendThread.start(Callable(self, "tickSend"))
 	receiveThread.start(Callable(self, "tickReceive"))
 	print(format("tcp client receive threadId:[{}] connect:[{}]", [receiveThread.get_id(), result]))
 	print(format("tcp client send threadId:[{}]", [sendThread.get_id()]))
 	pass
 
-func update():
+func update() -> void:
+	tickHeartbeat()
 	var decodedPacketInfo = popReceivePacket()
 	if decodedPacketInfo == null:
 		return
@@ -53,9 +58,9 @@ class EncodedPacketInfo:
 	var packet: Object
 	var attachment: SignalAttachment
 	
-	func _init(packet: Object, attachment: SignalAttachment):
-		self.packet = packet
-		self.attachment = attachment
+	func _init(_packet: Object, _attachment: SignalAttachment):
+		self.packet = _packet
+		self.attachment = _attachment
 	pass
 
 class DecodedPacketInfo:
@@ -64,16 +69,17 @@ class DecodedPacketInfo:
 	var packet: Object
 	var attachment: SignalAttachment
 	
-	func _init(packet: Object, attachment: SignalAttachment):
-		self.packet = packet
-		self.attachment = attachment
+	func _init(_packet: Object, _attachment: SignalAttachment):
+		self.packet = _packet
+		self.attachment = _attachment
 	pass
 
 ###################################################################################
-var noneTime: int = Time.get_unix_time_from_system()
-var errorTime: int = Time.get_unix_time_from_system()
-var connectingTime: int = Time.get_unix_time_from_system()
-var connectedTime: int = Time.get_unix_time_from_system()
+var noneTime: float = Time.get_unix_time_from_system()
+var errorTime: float = Time.get_unix_time_from_system()
+var connectingTime: float = Time.get_unix_time_from_system()
+var connectedTime: float = Time.get_unix_time_from_system()
+var heartbeatTime: float = Time.get_unix_time_from_system()
 
 var receiveQueue: Array[DecodedPacketInfo] = []
 var sendQueue: Array[EncodedPacketInfo] = []
@@ -93,7 +99,7 @@ func isConnected() -> bool:
 	var status = client.get_status()
 	return true if status == StreamPeerTCP.STATUS_CONNECTED else false
 
-func registerReceiver(protocol, callable: Callable):
+func registerReceiver(protocol, callable: Callable) -> void:
 	if packetBus.has(protocol.PROTOCOL_ID):
 		var old = packetBus[protocol.PROTOCOL_ID]
 		printerr(format("duplicate [protocol:{}] receiver [old:{}] [new:{}]", [protocol, old, callable]))
@@ -101,7 +107,7 @@ func registerReceiver(protocol, callable: Callable):
 	packetBus[protocol.PROTOCOL_ID] = callable
 	pass
 
-func removeReceiver(receiver):
+func removeReceiver(receiver) -> void:
 	for key in packetBus.keys():
 		var callable: Callable = packetBus[key]
 		if callable.get_object_id() == receiver.get_instance_id():
@@ -117,40 +123,35 @@ func popReceivePacket() -> DecodedPacketInfo:
 	receiveMutex.unlock()
 	return decodedPacketInfo
 
-# 查看服务器返回的第一个包
-func peekReceivePacket():
-	if receiveQueue.is_empty():
-		return null
-	return receiveQueue.front().packet
 
-func send(packet):
+func send(packet) -> void:
 	if packet == null:
 		printerr("null point exception")
 	addToSendQueue(EncodedPacketInfo.new(packet, null))
 	pass
 
-func addToSendQueue(encodedPacketInfo: EncodedPacketInfo):
+func addToSendQueue(encodedPacketInfo: EncodedPacketInfo) -> void:
 	sendMutex.lock()
 	sendQueue.push_back(encodedPacketInfo)
 	sendMutex.unlock()
 	sendSemaphore.post()
 	pass
 
-func addToReceiveQueue(decodedPacketInfo: DecodedPacketInfo):
+func addToReceiveQueue(decodedPacketInfo: DecodedPacketInfo) -> void:
 	receiveMutex.lock()
 	receiveQueue.push_back(decodedPacketInfo)
 	receiveMutex.unlock()
 	pass
 
 
-func asyncAsk(packet):
+func asyncAsk(packet) -> Object:
 	if packet == null:
 		printerr("null point exception")
 	var currentTime = Time.get_unix_time_from_system() * 1000
 	var attachment: SignalAttachment = SignalAttachment.new()
 	var signalId = uuidInt()
 	attachment.signalId = signalId
-	attachment.timestamp = currentTime
+	attachment.timestamp = int(currentTime) * 1000
 	attachment.client = 12
 	attachment.taskExecutorHash = -1
 	var encodedPacketInfo: EncodedPacketInfo = EncodedPacketInfo.new(packet, attachment)
@@ -171,7 +172,7 @@ func asyncAsk(packet):
 	return returnPacket
 
 
-func encodeAndSend(encodedPacketInfo: EncodedPacketInfo):
+func encodeAndSend(encodedPacketInfo: EncodedPacketInfo) -> void:
 	var packet = encodedPacketInfo.packet
 	var attachment = encodedPacketInfo.attachment
 	var buffer = ByteBuffer.new()
@@ -192,7 +193,7 @@ func encodeAndSend(encodedPacketInfo: EncodedPacketInfo):
 	pass
 	
 
-func decodeAndReceive():
+func decodeAndReceive() -> void:
 	var length = client.get_32()
 	# tcp粘包拆包
 	var data = client.get_data(length)
@@ -208,7 +209,7 @@ func decodeAndReceive():
 	pass
 
 
-func tickReceive():
+func tickReceive() -> void:
 	while true:
 		client.poll()
 		
@@ -244,7 +245,7 @@ func tickReceive():
 	pass
 
 
-func tickSend():
+func tickSend() -> void:
 	while true:
 		if sendQueue.is_empty():
 			sendSemaphore.wait()
@@ -276,7 +277,7 @@ func tickSend():
 func format(template: String, args: Array) -> String:
 	return template.format(args, "{}")
 
-var uuid = 0
+var uuid: int = 0
 var uuidMutex: Mutex = Mutex.new()
 func uuidInt() -> int:
 	uuidMutex.lock()
@@ -284,3 +285,11 @@ func uuidInt() -> int:
 	var id = uuid
 	uuidMutex.unlock()
 	return id
+
+# send heartbeat packet to server per 60 seconds
+func tickHeartbeat() -> void:
+	var currentTime = Time.get_unix_time_from_system()
+	if currentTime - heartbeatTime > 60:
+		send(Heartbeat.new())
+		heartbeatTime = currentTime
+	pass

@@ -35,6 +35,6 @@ func asyncAskButton() -> void:
 	print("async TcpHelloRequest -> ", answer)
 	pass
 	
-func _process(delta):
+func _process(_delta):
 	tcpClient.update()
 	pass

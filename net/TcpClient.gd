@@ -3,6 +3,7 @@ extends RefCounted
 const ProtocolManager = preload("res://zfoogd/ProtocolManager.gd")
 const ByteBuffer = preload("res://zfoogd/ByteBuffer.gd")
 const SignalAttachment = preload("res://zfoogd/attachment/SignalAttachment.gd")
+const Heartbeat = preload("res://zfoogd/common/Heartbeat.gd")
 
 var client = StreamPeerTCP.new()
 
@@ -15,15 +16,20 @@ func _init(hostAndPort: String):
 	port = splits[1].to_int()
 	pass
 
-func start():
+func start() -> void:
 	client.big_endian = true
-	client.connect_to_host(host, port)
+	var startResult = client.connect_to_host(host, port)
+	if startResult == OK:
+		print(format("start tcp client [{}:{}]", [host, port]))
+	else:
+		printerr(format("start tcp client error [{}:{}]", [host, port]))
 	pass
 
 # It is necessary to call update every once in a while to start the network to send and receive
-func update():
+func update() -> void:
 	tickReceive()
 	tickSend()
+	tickHeartbeat()
 	pass
 
 
@@ -35,9 +41,9 @@ class EncodedPacketInfo:
 	var packet: RefCounted
 	var attachment: SignalAttachment
 
-	func _init(packet: Object, attachment: SignalAttachment):
-		self.packet = packet
-		self.attachment = attachment
+	func _init(_packet: Object, _attachment: SignalAttachment):
+		self.packet = _packet
+		self.attachment = _attachment
 		pass
 	pass
 
@@ -47,16 +53,17 @@ class DecodedPacketInfo:
 	var packet: Object
 	var attachment: SignalAttachment
 
-	func _init(packet: Object, attachment: SignalAttachment):
-		self.packet = packet
-		self.attachment = attachment
+	func _init(_packet: Object, _attachment: SignalAttachment):
+		self.packet = _packet
+		self.attachment = _attachment
 		pass
 	pass
 
-var noneTime: int = Time.get_unix_time_from_system()
-var errorTime: int = Time.get_unix_time_from_system()
-var connectingTime: int = Time.get_unix_time_from_system()
-var connectedTime: int = Time.get_unix_time_from_system()
+var noneTime: float = Time.get_unix_time_from_system()
+var errorTime: float = Time.get_unix_time_from_system()
+var connectingTime: float = Time.get_unix_time_from_system()
+var connectedTime: float = Time.get_unix_time_from_system()
+var heartbeatTime: float = Time.get_unix_time_from_system()
 var uuid: int = 0
 
 var receiveQueue: Array[DecodedPacketInfo] = []
@@ -71,9 +78,8 @@ var packetBus: Dictionary = {}
 func isConnected() -> bool:
 	var status = client.get_status()
 	return true if status == StreamPeerTCP.STATUS_CONNECTED else false
-	pass
 
-func registerReceiver(protocol, callable: Callable):
+func registerReceiver(protocol, callable: Callable) -> void:
 	if packetBus.has(protocol.PROTOCOL_ID):
 		var old = packetBus[protocol.PROTOCOL_ID]
 		printerr(format("duplicate [protocol:{}] receiver [old:{}] [new:{}]", [protocol, old, callable]))
@@ -81,7 +87,7 @@ func registerReceiver(protocol, callable: Callable):
 	packetBus[protocol.PROTOCOL_ID] = callable
 	pass
 
-func removeReceiver(receiver):
+func removeReceiver(receiver) -> void:
 	for key in packetBus.keys():
 		var callable: Callable = packetBus[key]
 		if callable.get_object_id() == receiver.get_instance_id():
@@ -89,14 +95,14 @@ func removeReceiver(receiver):
 	pass
 
 
-func send(packet):
+func send(packet) -> void:
 	if packet == null:
 		printerr("null point exception")
 	sendQueue.push_back(EncodedPacketInfo.new(packet, null))
 	pass
 
 
-func asyncAsk(packet):
+func asyncAsk(packet) -> Object:
 	if packet == null:
 		printerr("null point exception")
 	var currentTime = Time.get_unix_time_from_system() * 1000
@@ -104,7 +110,7 @@ func asyncAsk(packet):
 	uuid = uuid + 1
 	var signalId = uuid
 	attachment.signalId = signalId
-	attachment.timestamp = currentTime
+	attachment.timestamp = int(currentTime) * 1000
 	attachment.client = 12
 	attachment.taskExecutorHash = -1
 	var encodedPacketInfo: EncodedPacketInfo = EncodedPacketInfo.new(packet, attachment)
@@ -121,7 +127,7 @@ func asyncAsk(packet):
 	return returnPacket
 
 
-func encodeAndSend(encodedPacketInfo: EncodedPacketInfo):
+func encodeAndSend(encodedPacketInfo: EncodedPacketInfo) -> void:
 	var packet = encodedPacketInfo.packet
 	var attachment = encodedPacketInfo.attachment
 	var buffer = ByteBuffer.new()
@@ -142,7 +148,7 @@ func encodeAndSend(encodedPacketInfo: EncodedPacketInfo):
 	pass
 
 
-func decodeAndReceive():
+func decodeAndReceive() -> void:
 	var length = client.get_32()
 	# tcp粘包拆包
 	var data = client.get_data(length)
@@ -164,7 +170,7 @@ func decodeAndReceive():
 	pass
 
 
-func tickReceive():
+func tickReceive() -> void:
 	var currentTime = Time.get_unix_time_from_system()
 	client.poll()
 	var status = client.get_status()
@@ -198,7 +204,7 @@ func tickReceive():
 	pass
 
 
-func tickSend():
+func tickSend() -> void:
 	if sendQueue.is_empty():
 		return
 	var encodedPacketInfo = sendQueue.pop_front()
@@ -223,3 +229,10 @@ func tickSend():
 func format(template: String, args: Array) -> String:
 	return template.format(args, "{}")
 
+# send heartbeat packet to server per 60 seconds
+func tickHeartbeat() -> void:
+	var currentTime = Time.get_unix_time_from_system()
+	if currentTime - heartbeatTime > 60:
+		send(Heartbeat.new())
+		heartbeatTime = currentTime
+	pass
