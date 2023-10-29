@@ -18,6 +18,10 @@ func _ready():
 	$AsyncAsk.connect("pressed", Callable(self, "asyncAskButton"))
 	pass
 
+func _exit_tree():
+	tcpClient.removeReceiver(TcpHelloResponse)
+	pass
+
 func atTcpHelloRequest(packet: TcpHelloResponse):
 	print("atTcpHelloRequest -> ", packet)
 	pass

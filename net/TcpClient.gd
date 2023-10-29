@@ -176,17 +176,17 @@ func tickReceive() -> void:
 	var status = client.get_status()
 	match status:
 		StreamPeerTCP.STATUS_NONE:
-			# 断线重连
-			client.disconnect_from_host()
-			client.connect_to_host(host, port)
 			if (currentTime - noneTime) > 3:
+				# 断线重连
+				client.disconnect_from_host()
+				client.connect_to_host(host, port)
 				printerr(format("status none [{}] host [{}:{}]", ["reconnect", host, port]))
 				noneTime = currentTime
 		StreamPeerTCP.STATUS_ERROR:
-			# 断线重连
-			client.disconnect_from_host()
-			client.connect_to_host(host, port)
 			if (currentTime - errorTime) > 3:
+				# 断线重连
+				client.disconnect_from_host()
+				client.connect_to_host(host, port)
 				printerr(format("status error host [{}:{}]", [host, port]))
 				errorTime = currentTime
 		StreamPeerTCP.STATUS_CONNECTING:
