@@ -112,7 +112,6 @@ func removeReceiver(receiver):
 func popReceivePacket() -> DecodedPacketInfo:
 	if receiveQueue.is_empty():
 		return null
-	print(format("------------------------------ receive packet count [{}]", [receiveQueue.size()]))
 	receiveMutex.lock()
 	var decodedPacketInfo: DecodedPacketInfo = receiveQueue.pop_front()
 	receiveMutex.unlock()
@@ -189,7 +188,7 @@ func encodeAndSend(encodedPacketInfo: EncodedPacketInfo):
 	buffer.setWriteOffset(writeOffset)
 	var data = buffer.toPackedByteArray()
 	client.put_data(data)
-	print(format("send packet [{}] [size:{}] [{}]", [packet.PROTOCOL_ID, buffer.getWriteOffset(), packet._to_string()]))
+	print(format("send packet [{}] [size:{}] [{}]", [packet.PROTOCOL_CLASS_NAME, buffer.getWriteOffset(), packet._to_string()]))
 	pass
 	
 
@@ -205,8 +204,7 @@ func decodeAndReceive():
 		if buffer.isReadable() && buffer.readBool():
 			attachment = ProtocolManager.read(buffer)
 		addToReceiveQueue(DecodedPacketInfo.new(packet, attachment))
-		print(format("receive packet [{}]", [packet.PROTOCOL_CLASS_NAME]))
-		print(packet)
+		print(format("receive packet [{}] [{}]", [packet.PROTOCOL_CLASS_NAME, packet]))	
 	pass
 
 

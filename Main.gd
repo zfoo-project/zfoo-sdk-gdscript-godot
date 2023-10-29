@@ -8,15 +8,17 @@ const TcpHelloRequest = preload("res://zfoogd/tcp/TcpHelloRequest.gd")
 const TcpHelloResponse = preload("res://zfoogd/tcp/TcpHelloResponse.gd")
 
 
-var tcpClient = TcpClient.new("127.0.0.1:9000")
+var tcpClient = TcpClientThreads.new("127.0.0.1:9000")
 
 func _ready():
+	tcpClient.start()
+	
 	tcpClient.registerReceiver(TcpHelloResponse, Callable(self, "atTcpHelloRequest"))
 	$SendPacket.connect("pressed", Callable(self, "sendPacketButton"))
 	$AsyncAsk.connect("pressed", Callable(self, "asyncAskButton"))
 	pass
 
-func atTcpHelloRequest(packet: TcpHelloRequest) -> void:
+func atTcpHelloRequest(packet: TcpHelloResponse):
 	print("atTcpHelloRequest -> ", packet)
 	pass
 

@@ -138,7 +138,7 @@ func encodeAndSend(encodedPacketInfo: EncodedPacketInfo):
 	buffer.setWriteOffset(writeOffset)
 	var data = buffer.toPackedByteArray()
 	client.put_data(data)
-	print(format("send packet [{}] [{}]", [packet.PROTOCOL_ID, packet._to_string()]))
+	print(format("send packet [{}] [{}]", [packet.PROTOCOL_CLASS_NAME, packet._to_string()]))
 	pass
 
 
@@ -150,8 +150,7 @@ func decodeAndReceive():
 		var buffer = ByteBuffer.new()
 		buffer.writePackedByteArray(PackedByteArray(data[1]))
 		var packet = ProtocolManager.read(buffer)
-		print(format("receive packet [{}]", [packet.PROTOCOL_CLASS_NAME]))
-		print(packet)
+		print(format("receive packet [{}] [{}]", [packet.PROTOCOL_CLASS_NAME, packet]))
 		var attachment: SignalAttachment = null
 		if buffer.isReadable() && buffer.readBool():
 			attachment = ProtocolManager.read(buffer)
