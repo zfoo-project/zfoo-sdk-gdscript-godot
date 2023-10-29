@@ -70,10 +70,10 @@ class DecodedPacketInfo:
 	pass
 
 ###################################################################################
-var noneTime: int = 0
-var errorTime: int = 0
-var connectingTime: int = 0
-var connectedTime: int = 0
+var noneTime: int = Time.get_unix_time_from_system()
+var errorTime: int = Time.get_unix_time_from_system()
+var connectingTime: int = Time.get_unix_time_from_system()
+var connectedTime: int = Time.get_unix_time_from_system()
 
 var receiveQueue: Array[DecodedPacketInfo] = []
 var sendQueue: Array[EncodedPacketInfo] = []
@@ -222,7 +222,7 @@ func tickReceive():
 				client.disconnect_from_host()
 				client.connect_to_host(host, port)
 				if (currentTime - noneTime) > 1:
-					printerr(format("status none [{}] host [{}:{}]", ["开始断线重连", host, port]))
+					printerr(format("status none [{}] host [{}:{}]", ["reconnect", host, port]))
 					noneTime = currentTime
 			StreamPeerTCP.STATUS_ERROR:
 				# 断线重连

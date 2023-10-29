@@ -3,4 +3,19 @@
 [ext_resource type="Script" path="res://Main.gd" id="1_3hcho"]
 
 [node name="Main" type="Node2D"]
+scale = Vector2(3, 3)
 script = ExtResource("1_3hcho")
+
+[node name="SendPacket" type="Button" parent="."]
+offset_left = 55.0
+offset_top = 54.3333
+offset_right = 167.0
+offset_bottom = 101.333
+text = "send packet"
+
+[node name="AsyncAsk" type="Button" parent="."]
+offset_left = 198.0
+offset_top = 55.3333
+offset_right = 310.0
+offset_bottom = 102.333
+text = "asynchronous ask"

@@ -67,10 +67,10 @@ class DecodedPacketInfo:
 	pass
 
 ###################################################################################
-var noneTime: int = 0
-var errorTime: int = 0
-var connectingTime: int = 0
-var connectedTime: int = 0
+var noneTime: int = Time.get_unix_time_from_system()
+var errorTime: int = Time.get_unix_time_from_system()
+var connectingTime: int = Time.get_unix_time_from_system()
+var connectedTime: int = Time.get_unix_time_from_system()
 
 var receiveQueue: Array[DecodedPacketInfo] = []
 var sendQueue: Array[EncodedPacketInfo] = []
@@ -219,7 +219,7 @@ func tickReceive():
 				client.close()
 				client.connect_to_url(url)
 				if (currentTime - noneTime) > 1:
-					printerr(format("status none [{}] host [{}]", ["开始断线重连", url]))
+					printerr(format("status none [{}] host [{}]", ["reconnect", url]))
 					noneTime = currentTime
 			WebSocketPeer.STATE_CLOSING:
 				if (currentTime - errorTime) > 2:

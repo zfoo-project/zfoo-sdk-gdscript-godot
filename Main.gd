@@ -1,11 +1,38 @@
 extends Node2D
 
+const TcpClient = preload("res://net/TcpClient.gd")
+const TcpClientThreads = preload("res://net/TcpClientThreads.gd")
+const WebsocketClient = preload("res://net/WebsocketClient.gd")
 
-# Called when the node enters the scene tree for the first time.
+const TcpHelloRequest = preload("res://zfoogd/tcp/TcpHelloRequest.gd")
+const TcpHelloResponse = preload("res://zfoogd/tcp/TcpHelloResponse.gd")
+
+
+var tcpClient = TcpClient.new("127.0.0.1:9000")
+
 func _ready():
-	pass # Replace with function body.
+	tcpClient.registerReceiver(TcpHelloResponse, Callable(self, "atTcpHelloRequest"))
+	$SendPacket.connect("pressed", Callable(self, "sendPacketButton"))
+	$AsyncAsk.connect("pressed", Callable(self, "asyncAskButton"))
+	pass
 
+func atTcpHelloRequest(packet: TcpHelloRequest) -> void:
+	print("atTcpHelloRequest -> ", packet)
+	pass
 
-# Called every frame. 'delta' is the elapsed time since the previous frame.
+func sendPacketButton() -> void:
+	var request = TcpHelloRequest.new()
+	request.message = "send packet pressed"
+	tcpClient.send(request)
+	pass
+
+func asyncAskButton() -> void:
+	var request = TcpHelloRequest.new()
+	request.message = "send packet pressed"
+	var answer: TcpHelloResponse = await tcpClient.asyncAsk(request)
+	print("async TcpHelloRequest -> ", answer)
+	pass
+	
 func _process(delta):
+	tcpClient.update()
 	pass
