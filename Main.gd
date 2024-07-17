@@ -9,7 +9,7 @@ const TcpHelloRequest = preload("res://zfoogd/tcp/TcpHelloRequest.gd")
 const TcpHelloResponse = preload("res://zfoogd/tcp/TcpHelloResponse.gd")
 
 
-var tcpClient = TcpClientThreads.new("127.0.0.1:9000")
+var tcpClient = TcpClient.new("127.0.0.1:9000")
 
 func _ready():
 	ProtocolManager.initProtocol()
