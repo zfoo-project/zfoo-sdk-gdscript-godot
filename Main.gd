@@ -1,5 +1,6 @@
 extends Node2D
 
+const ProtocolManager = preload("res://zfoogd/ProtocolManager.gd")
 const TcpClient = preload("res://net/TcpClient.gd")
 const TcpClientThreads = preload("res://net/TcpClientThreads.gd")
 const WebsocketClient = preload("res://net/WebsocketClient.gd")
@@ -11,6 +12,7 @@ const TcpHelloResponse = preload("res://zfoogd/tcp/TcpHelloResponse.gd")
 var tcpClient = TcpClientThreads.new("127.0.0.1:9000")
 
 func _ready():
+	ProtocolManager.initProtocol()
 	tcpClient.start()
 	
 	tcpClient.registerReceiver(TcpHelloResponse, Callable(self, "atTcpHelloRequest"))

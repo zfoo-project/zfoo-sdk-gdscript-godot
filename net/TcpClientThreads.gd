@@ -39,12 +39,13 @@ func update() -> void:
 	if decodedPacketInfo == null:
 		return
 	var packet = decodedPacketInfo.packet
+	var protocolId = packet.protocolId()
 	var attachment = decodedPacketInfo.attachment
 	if attachment == null:
-		if !packetBus.has(packet.PROTOCOL_ID):
-			printerr(format("[protocol:{}][protocolId:{}] has no registration, please register for this protocol", [packet.PROTOCOL_CLASS_NAME, packet.PROTOCOL_ID]))
+		if !packetBus.has(protocolId):
+			printerr(format("[protocol:{}][protocolId:{}] has no registration, please register for this protocol", [packet.get_class_name(), protocolId]))
 			return
-		packetBus[packet.PROTOCOL_ID].call(packet)
+		packetBus[protocolId].call(packet)
 	else:
 		var clientAttachment: EncodedPacketInfo = signalAttachmentMap[attachment.signalId]
 		clientAttachment.emit_signal("PacketSignal", packet)
@@ -100,11 +101,12 @@ func isConnected() -> bool:
 	return true if status == StreamPeerTCP.STATUS_CONNECTED else false
 
 func registerReceiver(protocol, callable: Callable) -> void:
-	if packetBus.has(protocol.PROTOCOL_ID):
-		var old = packetBus[protocol.PROTOCOL_ID]
+	var protocolId = protocol.new().protocolId()
+	if packetBus.has(protocolId):
+		var old = packetBus[protocolId]
 		printerr(format("duplicate [protocol:{}] receiver [old:{}] [new:{}]", [protocol, old, callable]))
 		return
-	packetBus[protocol.PROTOCOL_ID] = callable
+	packetBus[protocolId] = callable
 	pass
 
 func removeReceiver(receiver) -> void:
@@ -187,9 +189,9 @@ func encodeAndSend(encodedPacketInfo: EncodedPacketInfo) -> void:
 	buffer.setWriteOffset(0)
 	buffer.writeRawInt(writeOffset - 4)
 	buffer.setWriteOffset(writeOffset)
-	var data = buffer.toPackedByteArray()
+	var data = buffer.toBytes()
 	client.put_data(data)
-	print(format("send packet [{}] [size:{}] [{}]", [packet.PROTOCOL_CLASS_NAME, buffer.getWriteOffset(), packet._to_string()]))
+	print(format("send packet [{}] [size:{}] [{}]", [packet.get_class_name(), buffer.getWriteOffset(), packet._to_string()]))
 	pass
 	
 
@@ -199,13 +201,13 @@ func decodeAndReceive() -> void:
 	var data = client.get_data(length)
 	if (data[0] == OK):
 		var buffer = ByteBuffer.new()
-		buffer.writePackedByteArray(PackedByteArray(data[1]))
+		buffer.writeBytes(PackedByteArray(data[1]))
 		var packet = ProtocolManager.read(buffer)
 		var attachment: SignalAttachment = null
 		if buffer.isReadable() && buffer.readBool():
 			attachment = ProtocolManager.read(buffer)
 		addToReceiveQueue(DecodedPacketInfo.new(packet, attachment))
-		print(format("receive packet [{}] [{}]", [packet.PROTOCOL_CLASS_NAME, packet]))	
+		print(format("receive packet [{}] [{}]", [packet.get_class_name(), packet]))	
 	pass
 
 
